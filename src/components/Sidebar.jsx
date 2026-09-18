@@ -1,3 +1,5 @@
+import { getDeviceGraphUrl } from '../api/datalogger';
+
 const DEVICE_ICON = (
   <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
     <path d="M6 14a4 4 0 1 1 1.1-7.85A5 5 0 0 1 17 8a3.5 3.5 0 0 1-.5 6.98H6Z" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"/>
@@ -5,7 +7,18 @@ const DEVICE_ICON = (
   </svg>
 );
 
-export default function Sidebar({ devices, activeId, onSelect, statusById, open, onClose }) {
+const GRAPH_ICON = (
+  <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+    <path d="M4 4v16h16" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
+    <path d="m7 15 4-4 3 3 5-6" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
+  </svg>
+);
+
+const GRAPH_HELP = 'Opens in a new tab. Requires staff login on the admin site the first time.';
+
+// Hidden by default: the new-tab graph URL carries no token, so it bounces
+// through the backend's admin login. Pass canViewGraph for internal builds.
+export default function Sidebar({ devices, activeId, onSelect, statusById, open, onClose, canViewGraph = false }) {
   return (
     <>
       {open && <div className="sidebar-backdrop" onClick={onClose} aria-hidden="true" />}
@@ -15,26 +28,38 @@ export default function Sidebar({ devices, activeId, onSelect, statusById, open,
           {devices.map((d) => {
             const status = statusById?.[d.id];
             return (
-              <button
-                key={d.id}
-                type="button"
-                className={`sidebar-item${d.id === activeId ? ' active' : ''}`}
-                onClick={() => {
-                  onSelect(d.id);
-                  onClose?.();
-                }}
-              >
-                <span className="sidebar-item-icon">{DEVICE_ICON}</span>
-                <span className="sidebar-item-body">
-                  <span className="sidebar-item-name" title={d.name}>{d.name}</span>
-                  {status && (
-                    <span className={`sidebar-status sidebar-status-${status}`}>
-                      <span className="sidebar-status-dot" />
-                      {status === 'online' ? 'Online' : 'Offline'}
-                    </span>
-                  )}
-                </span>
-              </button>
+              <div key={d.id} className={`sidebar-row${canViewGraph ? ' has-graph' : ''}`}>
+                <button
+                  type="button"
+                  className={`sidebar-item${d.id === activeId ? ' active' : ''}`}
+                  onClick={() => {
+                    onSelect(d.id);
+                    onClose?.();
+                  }}
+                >
+                  <span className="sidebar-item-icon">{DEVICE_ICON}</span>
+                  <span className="sidebar-item-body">
+                    <span className="sidebar-item-name" title={d.name}>{d.name}</span>
+                    {status && (
+                      <span className={`sidebar-status sidebar-status-${status}`}>
+                        <span className="sidebar-status-dot" />
+                        {status === 'online' ? 'Online' : 'Offline'}
+                      </span>
+                    )}
+                  </span>
+                </button>
+                {canViewGraph && (
+                  <button
+                    type="button"
+                    className="sidebar-graph-btn"
+                    title={GRAPH_HELP}
+                    aria-label={`View graph for ${d.name}. ${GRAPH_HELP}`}
+                    onClick={() => window.open(getDeviceGraphUrl(d.id), '_blank', 'noopener')}
+                  >
+                    {GRAPH_ICON}
+                  </button>
+                )}
+              </div>
             );
           })}
         </nav>

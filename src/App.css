@@ -521,6 +521,42 @@ button.sidebar-item.active:hover:not(:disabled) {
   background: var(--brand-green);
 }
 
+.sidebar-row {
+  position: relative;
+}
+
+.sidebar-row.has-graph button.sidebar-item {
+  padding-right: 48px;
+}
+
+button.sidebar-graph-btn {
+  position: absolute;
+  top: 50%;
+  right: 8px;
+  transform: translateY(-50%);
+  display: grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  border: none;
+  border-radius: 8px;
+  background: transparent;
+  color: rgba(255, 255, 255, 0.6);
+  cursor: pointer;
+}
+
+button.sidebar-graph-btn:hover,
+button.sidebar-graph-btn:focus-visible {
+  background: rgba(255, 255, 255, 0.14);
+  color: #fff;
+}
+
+button.sidebar-graph-btn svg {
+  width: 18px;
+  height: 18px;
+}
+
 .sidebar-item-icon {
   width: 18px;
   height: 18px;
@@ -1652,5 +1688,26 @@ tbody tr:hover {
 
   .header-stats {
     flex-wrap: wrap;
+  }
+}
+
+.backend-graph {
+  background: var(--card-bg);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  overflow: hidden;
+  margin-bottom: 8px;
+}
+
+.backend-graph-frame {
+  display: block;
+  width: 100%;
+  height: 640px;
+  border: 0;
+}
+
+@media (max-width: 640px) {
+  .backend-graph-frame {
+    height: 480px;
   }
 }

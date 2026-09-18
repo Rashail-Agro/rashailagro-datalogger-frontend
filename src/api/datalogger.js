@@ -14,11 +14,21 @@ export async function fetchDevices() {
   }
 }
 
-// Django-rendered Chart.js page (TelemetryGraphView). It authenticates with a
-// Django session, not the DRF token, and sends X-Frame-Options, so it can only
-// be opened in its own tab, never embedded.
-export function deviceGraphPageUrl(deviceId) {
-  return `${BASE_URL}${BASE}/${encodeURIComponent(deviceId)}/graph/`;
+// Django-rendered Chart.js page (TelemetryGraphView). With ?token= it
+// authenticates by the DRF token (staff only) and may be framed by the origins
+// in the backend's CORS_ALLOWED_ORIGINS; without one it falls back to the
+// admin-session login. The token lands in server access logs, so only put it in
+// the embedded iframe, never in a link users can copy or share.
+export function getDeviceGraphUrl(deviceId, { token, startDate, endDate, startTime, endTime } = {}) {
+  const url = `${BASE_URL}${BASE}/${encodeURIComponent(deviceId)}/graph/`;
+  const params = new URLSearchParams();
+  if (token) params.set('token', token);
+  if (startDate) params.set('start_date', startDate);
+  if (endDate) params.set('end_date', endDate);
+  if (startTime) params.set('start_time', startTime);
+  if (endTime) params.set('end_time', endTime);
+  const query = params.toString();
+  return query ? `${url}?${query}` : url;
 }
 
 export async function fetchDeviceData({ deviceId, startDate, startTime, endDate, endTime }, page = 1, pageSize = 50) {

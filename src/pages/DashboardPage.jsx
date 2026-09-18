@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { fetchDevices, fetchDeviceData, downloadDeviceData, fetchDeviceSummary, deviceGraphPageUrl } from '../api/datalogger';
+import { fetchDevices, fetchDeviceData, downloadDeviceData, fetchDeviceSummary, getDeviceGraphUrl } from '../api/datalogger';
 import Topbar from '../components/Topbar';
 import Sidebar from '../components/Sidebar';
 import HeaderStats from '../components/HeaderStats';
@@ -17,6 +17,12 @@ const PAGE_SIZE = 25;
 const MAX_PAGE_SIZE = 500;
 const ONLINE_THRESHOLD_MIN = 15;
 const DEVICE_POLL_MS = 60000;
+
+// 'backend' embeds the Django graph page (TelemetryGraphView) in the Graph tab,
+// authenticated with ?token= so it needs no cross-site cookie; 'api' draws the
+// chart here from the readings API. The iframe is blocked by the page's CSP
+// unless this site's origin is in the backend's CORS_ALLOWED_ORIGINS.
+const GRAPH_SOURCE = 'backend';
 
 // Local calendar date, not toISOString(): that's UTC, which for IST users
 // reads as "yesterday" between midnight and 05:30.
@@ -109,7 +115,7 @@ function deviceStatus(device) {
 }
 
 export default function DashboardPage() {
-  const { user, logout } = useAuth();
+  const { user, token, logout } = useAuth();
   const navigate = useNavigate();
 
   const [devices, setDevices] = useState(null);
@@ -234,7 +240,7 @@ export default function DashboardPage() {
   }, [deviceId, startDate, endDate, page]);
 
   useEffect(() => {
-    if (!deviceId || historyTab !== 'graph') return undefined;
+    if (GRAPH_SOURCE !== 'api' || !deviceId || historyTab !== 'graph') return undefined;
     let cancelled = false;
     setChartLoading(true);
     setChartError('');
@@ -374,14 +380,6 @@ export default function DashboardPage() {
             <button type="button" className="secondary-btn" disabled={downloading} onClick={handleDownload}>
               {downloading ? 'Downloading...' : 'Download'}
             </button>
-
-            <button
-              type="button"
-              className="secondary-btn"
-              onClick={() => window.open(deviceGraphPageUrl(deviceId), '_blank', 'noopener,noreferrer')}
-            >
-              Open Graph Page
-            </button>
           </div>
 
           {error && <div className="error-message">{error}</div>}
@@ -403,7 +401,19 @@ export default function DashboardPage() {
             </button>
           </div>
 
-          {historyTab === 'graph' && (
+          {historyTab === 'graph' && GRAPH_SOURCE === 'backend' && (
+            <div className="backend-graph">
+              <iframe
+                key={deviceId}
+                className="backend-graph-frame"
+                src={getDeviceGraphUrl(deviceId, { token, startDate, endDate })}
+                referrerPolicy="no-referrer"
+                title={`Telemetry graph for ${activeDevice?.name ?? deviceId}`}
+              />
+            </div>
+          )}
+
+          {historyTab === 'graph' && GRAPH_SOURCE === 'api' && (
             <>
               {chartError && <div className="error-message">{chartError}</div>}
 
