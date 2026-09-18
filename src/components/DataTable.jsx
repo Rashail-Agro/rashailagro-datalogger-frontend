@@ -58,7 +58,9 @@ function renderCell(col, row) {
   return String(row[col] ?? '');
 }
 
-export default function DataTable({ rows, columns }) {
+// startIndex is how many rows precede this page, so S.No keeps counting across
+// pages (page 2 of 25-row pages starts at 26) instead of restarting at 1.
+export default function DataTable({ rows, columns, startIndex = 0 }) {
   if (!rows.length) return null;
   const cols = visibleColumns(columns);
 
@@ -67,6 +69,9 @@ export default function DataTable({ rows, columns }) {
       <table>
         <thead>
           <tr>
+            <th className="col-sno">
+              <span className="th-label">S.No</span>
+            </th>
             {cols.map((col) => (
               <th key={col}>
                 <span className="th-label">
@@ -80,6 +85,7 @@ export default function DataTable({ rows, columns }) {
         <tbody>
           {rows.map((row, i) => (
             <tr key={row.id ?? i}>
+              <td className="cell-time col-sno">{startIndex + i + 1}</td>
               {cols.map((col) => (
                 <td key={col} className={col === '_date' || col === '_time' ? 'cell-time' : 'cell-num'}>
                   {renderCell(col, row)}

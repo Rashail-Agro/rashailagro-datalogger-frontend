@@ -11,9 +11,10 @@ import TelemetryChart from '../components/TelemetryChart';
 import DateRangePicker from '../components/DateRangePicker';
 import Pagination from '../components/Pagination';
 import FarmMap from '../components/FarmMap';
+import EditDeviceDialog from '../components/EditDeviceDialog';
 import { FARM_BOUNDARIES, polygonAreaHectares } from '../data/farmBoundaries';
 
-const PAGE_SIZE = 25;
+const PAGE_SIZE = 50;
 const MAX_PAGE_SIZE = 500;
 const ONLINE_THRESHOLD_MIN = 15;
 const DEVICE_POLL_MS = 60000;
@@ -108,6 +109,26 @@ function filenameFromResponse(response, fallback) {
   return match ? match[1] : fallback;
 }
 
+// `id` stays the device_id string every readings call is keyed by; the UUID
+// the PATCH endpoint needs is kept as `uuid`.
+// `details` holds the editable fields exactly as the API returns them.
+function toDevice(d) {
+  return {
+    id: d.device_id,
+    uuid: d.id,
+    name: d.name || d.device_id,
+    status: deviceStatus(d),
+    details: { name: d.name, location: d.location, lat: d.lat, lon: d.lon },
+  };
+}
+
+function devicePoint(details) {
+  if (details?.lat == null || details?.lon == null || details.lat === '' || details.lon === '') return null;
+  const lat = Number(details.lat);
+  const lng = Number(details.lon);
+  return Number.isFinite(lat) && Number.isFinite(lng) ? { lat, lng } : null;
+}
+
 function deviceStatus(device) {
   if (!device.last_data_received_at) return 'offline';
   const ageMin = (Date.now() - new Date(device.last_data_received_at).getTime()) / 60000;
@@ -143,6 +164,7 @@ export default function DashboardPage() {
 
   const [historyTab, setHistoryTab] = useState('data');
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [editing, setEditing] = useState(false);
 
   // Requests can resolve out of order (e.g. rapid device switching) — each
   // loader only applies its result if it's still the most recent call.
@@ -204,9 +226,7 @@ export default function DashboardPage() {
       fetchDevices()
         .then((list) => {
           if (cancelled) return;
-          setDevices(
-            list.map((d) => ({ id: d.device_id, name: d.name || d.device_id, status: deviceStatus(d) })),
-          );
+          setDevices(list.map(toDevice));
           setDevicesError('');
           setDeviceId((current) => current ?? list[0]?.device_id ?? null);
         })
@@ -307,10 +327,33 @@ export default function DashboardPage() {
     return Object.keys(rows[0]);
   }, [rows]);
 
+  // Applied locally so the heading and map update without waiting for the
+  // next device poll; `saved` is the PATCH response merged over what was sent.
+  function handleDeviceSaved(uuid, saved) {
+    setDevices((list) =>
+      list.map((d) => {
+        if (d.uuid !== uuid) return d;
+        const details = {
+          name: saved.name ?? null,
+          location: saved.location ?? null,
+          lat: saved.lat ?? null,
+          lon: saved.lon ?? null,
+        };
+        return { ...d, name: details.name || d.id, details };
+      }),
+    );
+  }
+
   const deviceList = useMemo(() => devices || [], [devices]);
   const activeDevice = deviceList.find((d) => d.id === deviceId);
   const statusById = useMemo(() => Object.fromEntries(deviceList.map((d) => [d.id, d.status])), [deviceList]);
   const farm = FARM_BOUNDARIES[deviceId];
+  // Coordinates saved on the device take priority; the hard-coded farm data
+  // still supplies the boundary polygon (and a fallback point) where it exists.
+  const savedPoint = useMemo(() => devicePoint(activeDevice?.details), [activeDevice?.details]);
+  const mapPoint = savedPoint ?? farm?.point ?? null;
+  const hasMap = Boolean(mapPoint || farm?.polygon);
+  const mapLabel = activeDevice?.details?.location || farm?.location || activeDevice?.name;
   const areaHectares = useMemo(
     () => (farm?.polygon ? polygonAreaHectares(farm.polygon) : 0),
     [farm],
@@ -350,25 +393,47 @@ export default function DashboardPage() {
             <span className="breadcrumb-current">{activeDevice?.name}</span>
           </div>
           <div className="page-title-row">
-            <h1>{activeDevice?.name}</h1>
+            <div className="page-title">
+              <h1>{activeDevice?.name}</h1>
+              {activeDevice?.details?.location && activeDevice.details.location !== activeDevice.name && <span className="page-title-location">{activeDevice.details.location}</span>}
+              {activeDevice && (
+                <button type="button" className="secondary-btn edit-device-btn" onClick={() => setEditing(true)}>
+                  Edit device
+                </button>
+              )}
+            </div>
             <HeaderStats latestRow={recentRows[0]} />
           </div>
 
-          {farm && (
-            <>
-              <div className="section-label">Location</div>
-              <FarmMap
-                key={deviceId}
-                polygon={farm.polygon}
-                point={farm.point}
-                location={farm.location}
-                areaHectares={areaHectares}
-                latestRow={recentRows[0]}
-              />
-            </>
+          <div className="section-label">Location</div>
+          {hasMap ? (
+            <FarmMap
+              key={`${deviceId}:${mapPoint?.lat},${mapPoint?.lng}`}
+              polygon={farm?.polygon}
+              point={mapPoint}
+              location={mapLabel}
+              areaHectares={areaHectares}
+              latestRow={recentRows[0]}
+            />
+          ) : (
+            <div className="map-empty">
+              No location set for this device.{' '}
+              <button type="button" className="link-btn" onClick={() => setEditing(true)}>
+                Add latitude and longitude
+              </button>{' '}
+              to show it on the map.
+            </div>
           )}
 
-          <AverageTiles summary={summary} />
+          {editing && activeDevice && (
+            <EditDeviceDialog
+              device={activeDevice}
+              onClose={() => setEditing(false)}
+              onSaved={handleDeviceSaved}
+            />
+          )}
+
+          <AverageTiles summary={summary} latestRow={recentRows[0]} />
 
           <div className="section-label">Historical Data</div>
           <div className="filters">
@@ -448,7 +513,7 @@ export default function DashboardPage() {
                     totalCount={totalCount}
                     onChange={setPage}
                   />
-                  <DataTable rows={rows} columns={columns} />
+                  <DataTable rows={rows} columns={columns} startIndex={(page - 1) * PAGE_SIZE} />
                 </>
               )}
 

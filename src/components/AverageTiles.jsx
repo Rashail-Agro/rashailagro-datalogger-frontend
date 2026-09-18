@@ -1,4 +1,4 @@
-import { metricMeta, METRIC_SCALE } from '../theme/metrics';
+import { metricMeta, METRIC_SCALE, windDirectionLabel, windDirectionDegrees } from '../theme/metrics';
 import { metricStatus } from '../theme/metricStatus';
 import MetricIcon from './MetricIcons';
 
@@ -35,7 +35,29 @@ function formatTime(value) {
   return Number.isNaN(d.getTime()) ? null : d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
 }
 
-export default function AverageTiles({ summary }) {
+// Direction is circular, so an average of it isn't meaningful; the wind tile
+// shows the newest reading's direction instead.
+function CurrentWindDirection({ latestRow }) {
+  const word = latestRow?.wind_direction;
+  const degrees = word != null ? windDirectionDegrees(word, latestRow.wind_direction_degrees) : null;
+  const label = word != null ? windDirectionLabel(word) : '—';
+  return (
+    <div className="average-wind-dir">
+      <span className="average-stat-label">Current direction</span>
+      <span className="average-wind-dir-value">
+        {Number.isFinite(degrees) && (
+          <svg viewBox="0 0 24 24" width="16" height="16" style={{ transform: `rotate(${degrees}deg)` }} aria-hidden="true">
+            <path d="M12 3v18M12 3l-5 5M12 3l5 5" />
+          </svg>
+        )}
+        {label}
+        {Number.isFinite(degrees) && <span className="average-wind-dir-deg">{Math.round(degrees)}&deg;</span>}
+      </span>
+    </div>
+  );
+}
+
+export default function AverageTiles({ summary, latestRow }) {
   if (!summary) return null;
 
   const isSingleDay = Boolean(summary.date) || summary.start_date === summary.end_date;
@@ -127,6 +149,8 @@ export default function AverageTiles({ summary }) {
                   </div>
                 </div>
               </div>
+
+              {key === 'wind_speed' && <CurrentWindDirection latestRow={latestRow} />}
             </div>
           );
         })}

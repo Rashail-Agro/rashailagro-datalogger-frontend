@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { MapContainer, TileLayer, Polygon, Marker, Popup } from 'react-leaflet';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
@@ -6,12 +6,22 @@ import { polygonCentroid } from '../data/farmBoundaries';
 import { windDirectionLabel, windDirectionDegrees } from '../theme/metrics';
 import Compass from './Compass';
 
-const deviceIcon = L.divIcon({
-  className: 'farm-marker',
-  html: `<div class="farm-marker-pin"></div>`,
-  iconSize: [18, 18],
-  iconAnchor: [9, 9],
-});
+// The pin sits on the device; the latest wind speed rides in a bubble above
+// it, with an arrow turned to the wind direction when one is known.
+function deviceIcon(speed, degrees) {
+  const arrow = Number.isFinite(degrees)
+    ? `<svg class="wind-marker-arrow" viewBox="0 0 24 24" style="transform:rotate(${degrees}deg)"><path d="M12 3v18M12 3l-5 5M12 3l5 5"/></svg>`
+    : '';
+  const bubble = Number.isFinite(speed)
+    ? `<div class="wind-marker-bubble">${arrow}${speed.toFixed(1)} m/s</div>`
+    : '';
+  return L.divIcon({
+    className: 'farm-marker',
+    html: `${bubble}<div class="farm-marker-pin"></div>`,
+    iconSize: [18, 18],
+    iconAnchor: [9, 9],
+  });
+}
 
 const TILE_LAYERS = {
   street: {
@@ -26,11 +36,14 @@ const TILE_LAYERS = {
 
 export default function FarmMap({ polygon, point, location, areaHectares, latestRow }) {
   const [layer, setLayer] = useState('satellite');
-  const center = polygon ? polygonCentroid(polygon) : point;
+  // A saved device coordinate wins over the farm polygon's centroid.
+  const center = point ?? polygonCentroid(polygon);
   const positions = polygon?.map((p) => [p.lat, p.lng]);
 
   const windSpeed = latestRow ? Number(latestRow.wind_speed) : null;
   const windDir = latestRow?.wind_direction;
+  const windDegrees = windDir != null ? windDirectionDegrees(windDir, latestRow?.wind_direction_degrees) : null;
+  const icon = useMemo(() => deviceIcon(windSpeed, windDegrees), [windSpeed, windDegrees]);
 
   return (
     <div className="farm-map-wrap">
@@ -65,19 +78,20 @@ export default function FarmMap({ polygon, point, location, areaHectares, latest
         {positions && (
           <Polygon positions={positions} pathOptions={{ color: '#16a34a', weight: 2, fillColor: '#16a34a', fillOpacity: 0.15 }} />
         )}
-        <Marker position={[center.lat, center.lng]} icon={deviceIcon}>
+        <Marker position={[center.lat, center.lng]} icon={icon}>
           <Popup>{location}</Popup>
         </Marker>
       </MapContainer>
 
       <Compass
         direction={windDir != null ? windDirectionLabel(windDir) : null}
-        degrees={windDir != null ? windDirectionDegrees(windDir, latestRow?.wind_direction_degrees) : null}
+        degrees={windDegrees}
         speed={windSpeed}
       />
 
       <div className="map-coords-overlay">
-        {center.lat.toFixed(4)}&deg; N {center.lng.toFixed(4)}&deg; E
+        {Math.abs(center.lat).toFixed(4)}&deg; {center.lat < 0 ? 'S' : 'N'}{' '}
+        {Math.abs(center.lng).toFixed(4)}&deg; {center.lng < 0 ? 'W' : 'E'}
         {areaHectares > 0 && <> &middot; {areaHectares.toFixed(2)} HA</>}
       </div>
     </div>

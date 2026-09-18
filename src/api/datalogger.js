@@ -14,6 +14,12 @@ export async function fetchDevices() {
   }
 }
 
+// Keyed by the device's UUID `id`, not its `device_id` string. Staff only.
+export async function updateDevice(id, fields) {
+  const { data } = await client.patch(`${BASE}/devices/${encodeURIComponent(id)}/`, fields);
+  return data;
+}
+
 // Django-rendered Chart.js page (TelemetryGraphView). With ?token= it
 // authenticates by the DRF token (staff only) and may be framed by the origins
 // in the backend's CORS_ALLOWED_ORIGINS; without one it falls back to the
