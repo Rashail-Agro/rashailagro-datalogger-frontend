@@ -1,10 +1,3 @@
-const CLOUD_ICON = (
-  <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-    <path d="M6 14a4 4 0 1 1 1.1-7.85A5 5 0 0 1 17 8a3.5 3.5 0 0 1-.5 6.98H6Z" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"/>
-    <path d="M8 17v2M12 17v2.5M16 17v2" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round"/>
-  </svg>
-);
-
 function initials(name) {
   if (!name) return '?';
   return name.slice(0, 2).toUpperCase();
@@ -27,7 +20,7 @@ export default function Topbar({ user, onLogout, recordCount, onToggleSidebar })
       </button>
 
       <div className="topbar-brand">
-        <span className="topbar-brand-icon">{CLOUD_ICON}</span>
+        <img className="topbar-brand-icon" src="/logo.svg" alt="" />
         <span className="topbar-brand-text">Weather Station</span>
       </div>
 

@@ -51,12 +51,7 @@ export default function LoginPage() {
       <div className="login-left">
         <div className="login-left-inner">
           <div className="brand">
-            <span className="brand-icon" aria-hidden="true">
-              <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                <path d="M6 14a4 4 0 1 1 1.1-7.85A5 5 0 0 1 17 8a3.5 3.5 0 0 1-.5 6.98H6Z" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"/>
-                <path d="M8 17v2M12 17v2.5M16 17v2" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round"/>
-              </svg>
-            </span>
+            <img className="brand-icon" src="/logo.svg" alt="" />
             <span className="brand-name">Weather Station</span>
           </div>
 
